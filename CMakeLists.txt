@@ -4,7 +4,6 @@ project("LCEMP")
 set(LCEMP_WORKING_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Assets" CACHE STRING "The working directory for MinecraftClient")
 
 set(CMAKE_CXX_STANDARD 11)
-add_subdirectory(Vendor)
 
 if(NOT WIN32)
     message(FATAL_ERROR "Windows is currently the only supported OS")
