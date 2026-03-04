@@ -1113,9 +1113,19 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 	app.NavigateToScene(XUSER_INDEX_ANY,eUIScene_Intro,&initData);
 #endif
 
-	// Set the default sound levels
-	pMinecraft->options->set(Options::Option::MUSIC,1.0f);
-	pMinecraft->options->set(Options::Option::SOUND,1.0f);
+	app.ApplyGameSettingsChanged(ProfileManager.GetPrimaryPad());
+
+#ifdef _DEBUG_MENUS_ENABLED
+	if(app.DebugSettingsOn())
+	{
+		app.ActionDebugMask(ProfileManager.GetPrimaryPad());
+	}
+	else
+	{
+		// force debug mask off
+		app.ActionDebugMask(ProfileManager.GetPrimaryPad(),true);
+	}
+#endif
 
 	//app.TemporaryCreateGameStart();
 

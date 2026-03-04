@@ -674,7 +674,12 @@ void CMinecraftApp::InitGameSettings()
 		C_4JProfile::PROFILESETTINGS *pProfileSettings=ProfileManager.GetDashboardProfileSettings(i);
 		// clear this for now - it will come from reading the system values
 		memset(pProfileSettings,0,sizeof(C_4JProfile::PROFILESETTINGS));
-		SetDefaultOptions(pProfileSettings,i);
+
+		extern bool Win64_HasSavedProfile(int iPad);
+		if (!Win64_HasSavedProfile(i))
+		{
+			SetDefaultOptions(pProfileSettings,i);
+		}
 #elif defined __PS3__ || defined __ORBIS__ || defined _DURANGO  || defined __PSVITA__
 		C4JStorage::PROFILESETTINGS *pProfileSettings=StorageManager.GetDashboardProfileSettings(i);
 		// 4J-PB - don't cause an options write to happen here

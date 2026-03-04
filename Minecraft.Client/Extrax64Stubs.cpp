@@ -488,7 +488,46 @@ DWORD XEnableGuestSignin(BOOL fEnable) { return 0; }
 /////////////////////////////////////////////// Profile library
 #ifdef _WINDOWS64
 static void *profileData[4];
+static int profileDataSizePerPlayer = 0;
 static bool s_bProfileIsFullVersion;
+static bool s_profileLoadedFromDisk[4] = {false, false, false, false};
+
+bool Win64_HasSavedProfile(int iPad)
+{
+	if (iPad >= 0 && iPad < 4) return s_profileLoadedFromDisk[iPad];
+	return false;
+}
+
+static void GetProfileFilePath(int iQuadrant, char *outPath, int maxLen)
+{
+	char curDir[256];
+	GetCurrentDirectoryA(sizeof(curDir), curDir);
+	sprintf_s(outPath, maxLen, "%s\\Windows64\\GameHDD\\profile_%d.dat", curDir, iQuadrant);
+}
+
+static bool LoadProfileFromDisk(int iQuadrant, void *pData, int dataSize)
+{
+	char path[256];
+	GetProfileFilePath(iQuadrant, path, sizeof(path));
+	FILE *f = NULL;
+	fopen_s(&f, path, "rb");
+	if (!f) return false;
+	size_t bytesRead = fread(pData, 1, dataSize, f);
+	fclose(f);
+	return (bytesRead == (size_t)dataSize);
+}
+
+static void SaveProfileToDisk(int iQuadrant, void *pData, int dataSize)
+{
+	char path[256];
+	GetProfileFilePath(iQuadrant, path, sizeof(path));
+	FILE *f = NULL;
+	fopen_s(&f, path, "wb");
+	if (!f) return;
+	fwrite(pData, 1, dataSize, f);
+	fclose(f);
+}
+
 void				C_4JProfile::Initialise( DWORD dwTitleID,
 								DWORD dwOfferID,
 								unsigned short usProfileVersion,
@@ -498,10 +537,11 @@ void				C_4JProfile::Initialise( DWORD dwTitleID,
 								int iGameDefinedDataSizeX4,
 								unsigned int *puiGameDefinedDataChangedBitmask)
 {
+	profileDataSizePerPlayer = iGameDefinedDataSizeX4/4;
 	for( int i = 0; i < 4; i++ )
 	{
-		profileData[i] = new byte[iGameDefinedDataSizeX4/4];
-		ZeroMemory(profileData[i],sizeof(byte)*iGameDefinedDataSizeX4/4);
+		profileData[i] = new byte[profileDataSizePerPlayer];
+		ZeroMemory(profileData[i],sizeof(byte)*profileDataSizePerPlayer);
 
 		// Set some sane initial values!
 		GAME_SETTINGS *pGameSettings = (GAME_SETTINGS *)profileData[i];
@@ -552,6 +592,11 @@ void				C_4JProfile::Initialise( DWORD dwTitleID,
 
 		// Has gone halfway through the tutorial
 		pGameSettings->ucTutorialCompletion[28] |= 1<<0;
+
+
+		s_profileLoadedFromDisk[i] = LoadProfileFromDisk(i, profileData[i], profileDataSizePerPlayer);
+
+		pGameSettings->bSettingsChanged = false;
 	}
 }
 void				C_4JProfile::SetTrialTextStringTable(CXuiStringTable *pStringTable,int iAccept,int iReject) {}
@@ -633,8 +678,28 @@ int					C_4JProfile::SetOldProfileVersionCallback(int( *Func)(LPVOID,unsigned ch
 C_4JProfile::PROFILESETTINGS ProfileSettingsA[XUSER_MAX_COUNT];
 
 C_4JProfile::PROFILESETTINGS *	C_4JProfile::GetDashboardProfileSettings(int iPad) { return &ProfileSettingsA[iPad]; }
-void				C_4JProfile::WriteToProfile(int iQuadrant, bool bGameDefinedDataChanged, bool bOverride5MinuteLimitOnProfileWrites) {}
-void				C_4JProfile::ForceQueuedProfileWrites(int iPad) {}
+void				C_4JProfile::WriteToProfile(int iQuadrant, bool bGameDefinedDataChanged, bool bOverride5MinuteLimitOnProfileWrites)
+{
+	if (iQuadrant >= 0 && iQuadrant < 4 && profileData[iQuadrant] && profileDataSizePerPlayer > 0)
+	{
+		SaveProfileToDisk(iQuadrant, profileData[iQuadrant], profileDataSizePerPlayer);
+	}
+}
+void				C_4JProfile::ForceQueuedProfileWrites(int iPad)
+{
+	if (iPad == XUSER_INDEX_ANY)
+	{
+		for (int i = 0; i < 4; i++)
+		{
+			if (profileData[i] && profileDataSizePerPlayer > 0)
+				SaveProfileToDisk(i, profileData[i], profileDataSizePerPlayer);
+		}
+	}
+	else if (iPad >= 0 && iPad < 4 && profileData[iPad] && profileDataSizePerPlayer > 0)
+	{
+		SaveProfileToDisk(iPad, profileData[iPad], profileDataSizePerPlayer);
+	}
+}
 void				*C_4JProfile::GetGameDefinedProfileData(int iQuadrant)
 {
 	// 4J Stu - Don't reset the options when we call this!!
